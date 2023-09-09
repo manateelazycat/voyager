@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2022 Andy Stewart
+# Copyright (C) 2023 Andy Stewart
 #
 # Author:     Andy Stewart <lazycat.manatee@gmail.com>
 # Maintainer: Andy Stewart <lazycat.manatee@gmail.com>
@@ -24,6 +24,7 @@ import traceback
 import sys
 from pathlib import Path
 from epc.server import ThreadingEPCServer
+from core.dap_server import DapServer
 from utils import (init_epc_client, eval_in_emacs, logger, close_epc_client)
 
 class Voyager:
@@ -68,6 +69,10 @@ class Voyager:
                 self.event_queue.task_done()
         except:
             logger.error(traceback.format_exc())
+
+    def launch(self):
+        DapServer()
+        print("Launch test")
 
     def cleanup(self):
         """Do some cleanup before exit python process."""

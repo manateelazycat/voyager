@@ -254,6 +254,10 @@ Then Voyager will start by gdb, please send new issue with `*voyager*' buffer co
 
   (message "*******"))
 
+(defun voyager-launch ()
+  (interactive)
+  (voyager-call-async "launch"))
+
 (defun voyager-enable ()
   (add-hook 'post-command-hook #'voyager-start-process))
 
