@@ -159,7 +159,7 @@ Then Voyager will start by gdb, please send new issue with `*voyager*' buffer co
   "Call Python EPC function METHOD and ARGS asynchronously."
   (if (voyager-epc-live-p voyager-epc-process)
       (voyager-deferred-chain
-        (voyager-epc-call-deferred voyager-epc-process (read method) args))
+       (voyager-epc-call-deferred voyager-epc-process (read method) args))
     (setq voyager-first-call-method method)
     (setq voyager-first-call-args args)
     ))
@@ -245,12 +245,12 @@ Then Voyager will start by gdb, please send new issue with `*voyager*' buffer co
   (when (and voyager-first-call-method
              voyager-first-call-args)
     (voyager-deferred-chain
-      (voyager-epc-call-deferred voyager-epc-process
-                                 (read voyager-first-call-method)
-                                 voyager-first-call-args)
-      (setq voyager-first-call-method nil)
-      (setq voyager-first-call-args nil)
-      ))
+     (voyager-epc-call-deferred voyager-epc-process
+                                (read voyager-first-call-method)
+                                voyager-first-call-args)
+     (setq voyager-first-call-method nil)
+     (setq voyager-first-call-args nil)
+     ))
 
   (message "*******"))
 

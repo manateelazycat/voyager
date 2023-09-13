@@ -35,6 +35,8 @@ DEFAULT_BUFFER_SIZE = 100000000  # we need make buffer size big enough, avoid pi
 class DapServer:
 
     def __init__(self):
+        self.initialize_id = generate_request_id()
+
         self.dap_subprocess = subprocess.Popen(["python", "-m" "debugpy", "--listen", "5678", "/home/andy/test.py"],
                                                bufsize=DEFAULT_BUFFER_SIZE,
                                                stdin=PIPE,
@@ -50,14 +52,39 @@ class DapServer:
         self.receive_message_thread = threading.Thread(target=self.dap_message_dispatcher)
         self.receive_message_thread.start()
 
+        self.send_initialize_request()
+
+    def send_initialize_request(self):
+        self.sender.send_request("initialize", {
+            "clientID": "vscode",
+            "clientName": "Visual Studio Code",
+            "adapterID": "0",
+            "locale": "en-us",
+            "linesStartAt1": True,
+            "columnsStartAt1": True,
+            "pathFormat": "path",
+            "supportsVariableType": True,
+            "supportsVariablePaging": True,
+            "supportsRunInTerminalRequest": True,
+            "supportsMemoryReferences": True,
+            "supportsProgressReporting": True,
+            "supportsInvalidatedEvent": True,
+            "supportsMemoryEvent": True,
+            "supportsArgsCanBeInterpretedByShell": True,
+            "supportsStartDebuggingRequest": True
+        }, self.initialize_id, init=True)
+
     def dap_message_dispatcher(self):
         try:
             while True:
                 message = self.receiver.get_message()
-                print(message["content"])
+                self.handle_recv_message(message)
         except:
             import traceback
             print(traceback.format_exc())
+
+    def handle_recv_message(self, message: dict):
+        print("***** ", message)
 
 class MessageSender(Thread):
 
@@ -82,9 +109,40 @@ class MessageReceiver(Thread):
         return self.queue.get(block=True)
 
 class DapServerSender(MessageSender):
-
     def __init__(self, process: subprocess.Popen):
         super().__init__(process)
+
+        self.init_queue = queue.Queue()
+        self.initialized = threading.Event()
+
+    def enqueue_message(self, message: dict, *, init=False):
+        message["jsonrpc"] = "2.0"
+        if init:
+            self.init_queue.put(message)
+        else:
+            self.queue.put(message)
+
+    def send_request(self, method, params, request_id, **kwargs):
+        self.enqueue_message(dict(
+            id=request_id,
+            method=method,
+            params=params,
+            message_type="request"
+        ), **kwargs)
+
+    def send_notification(self, method, params, **kwargs):
+        self.enqueue_message(dict(
+            method=method,
+            params=params,
+            message_type="notification"
+        ), **kwargs)
+
+    def send_response(self, request_id, result, **kwargs):
+        self.enqueue_message(dict(
+            id=request_id,
+            result=result,
+            message_type="response"
+        ), **kwargs)
 
     def send_message(self, message: dict):
         json_content = json.dumps(message)
@@ -94,8 +152,39 @@ class DapServerSender(MessageSender):
         self.process.stdin.write(message_str.encode("utf-8"))    # type: ignore
         self.process.stdin.flush()    # type: ignore
 
+        message_type = message.get("message_type")
+
+        if message_type == "request" and \
+           not message.get('method', 'response') == 'textDocument/documentSymbol':
+            print("Send {} request ({})".format(
+                message.get('method', 'response'),
+                message.get('id', 'notification')
+            ))
+        elif message_type == "notification":
+            print("Send {} notification".format(
+                message.get('method', 'response')
+            ))
+        elif message_type == "response":
+            print("Send response to server request {}".format(
+                message.get('id', 'notification')
+            ))
+
+        print(json.dumps(message, indent=3))
+
     def run(self) -> None:
         try:
+            # Send "initialize" request.
+            self.send_message(self.init_queue.get())
+
+            # Wait until initialized.
+            self.initialized.wait()
+
+            # Send other initialization-related messages.
+            while not self.init_queue.empty():
+                message = self.init_queue.get()
+                self.send_message(message)
+
+            # Send all others.
             while self.process.poll() is None:
                 message = self.queue.get()
                 self.send_message(message)
@@ -160,7 +249,6 @@ class DapServerReceiver(MessageReceiver):
                         self.emit_message(msg.decode("utf-8"))
                 if self.process.stderr:
                     print(self.process.stderr.read())
-            print("LSP server '{}' exited with code {}".format(self.server_name, self.process.returncode))
             print(self.process.stdout.read())    # type: ignore
             if self.process.stderr:
                 print(self.process.stderr.read())

@@ -26,3 +26,7 @@ except:
 
 def parse_json_content(content):
     return json_parser.loads(content)
+
+def generate_request_id():
+    import random
+    return abs(random.getrandbits(16))
