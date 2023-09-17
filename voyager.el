@@ -250,9 +250,7 @@ Then Voyager will start by gdb, please send new issue with `*voyager*' buffer co
                                 voyager-first-call-args)
      (setq voyager-first-call-method nil)
      (setq voyager-first-call-args nil)
-     ))
-
-  (message "*******"))
+     )))
 
 (defun voyager-launch ()
   (interactive)
