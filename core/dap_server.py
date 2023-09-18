@@ -72,7 +72,7 @@ class DapServer:
         self.sender.send_request("initialize", {
             "clientID": "vscode",
             "clientName": "Visual Studio Code",
-            "adapterID": "0",
+            "adapterID": "debugpy",
             "locale": "en-us",
             "linesStartAt1": True,
             "columnsStartAt1": True,
@@ -132,32 +132,31 @@ class DapServerSender(MessageSender):
         self.initialized = threading.Event()
 
     def enqueue_message(self, message: dict, *, init=False):
-        message["jsonrpc"] = "2.0"
         if init:
             self.init_queue.put(message)
         else:
             self.queue.put(message)
 
-    def send_request(self, method, params, request_id, **kwargs):
+    def send_request(self, command, arguments, request_id, **kwargs):
         self.enqueue_message(dict(
-            id=request_id,
-            method=method,
-            params=params,
-            message_type="request"
+            seq=request_id,
+            command=command,
+            arguments=arguments,
+            type="request"
         ), **kwargs)
 
     def send_notification(self, method, params, **kwargs):
         self.enqueue_message(dict(
             method=method,
             params=params,
-            message_type="notification"
+            type="notification"
         ), **kwargs)
 
     def send_response(self, request_id, result, **kwargs):
         self.enqueue_message(dict(
             id=request_id,
             result=result,
-            message_type="response"
+            type="response"
         ), **kwargs)
 
     def send_message(self, message: dict):
@@ -170,17 +169,16 @@ class DapServerSender(MessageSender):
 
         self.socket.sendall(message_str.encode("utf-8"))
 
-        message_type = message.get("message_type")
+        message_type = message.get("type")
 
-        if message_type == "request" and \
-           not message.get('method', 'response') == 'textDocument/documentSymbol':
+        if message_type == "request":
             print("Send {} request ({})".format(
-                message.get('method', 'response'),
+                message.get('command', 'response'),
                 message.get('id', 'notification')
             ))
         elif message_type == "notification":
             print("Send {} notification".format(
-                message.get('method', 'response')
+                message.get('command', 'response')
             ))
         elif message_type == "response":
             print("Send response to server request {}".format(
