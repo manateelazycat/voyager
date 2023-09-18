@@ -30,3 +30,23 @@ def parse_json_content(content):
 def generate_request_id():
     import random
     return abs(random.getrandbits(16))
+
+def get_free_port():
+    """
+    Determines a free port using sockets.
+    """
+    import socket
+
+    free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    free_socket.bind(('0.0.0.0', 0))
+    free_socket.listen(5)
+    port = free_socket.getsockname()[1]
+    free_socket.close()
+
+    return port
+
+def is_port_in_use(port):
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0

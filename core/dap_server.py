@@ -41,15 +41,17 @@ class DapServer(Thread):
     def run(self) -> None:
         self.initialize_id = generate_request_id()
 
+        self.server_port = get_free_port()
+
         self.dap_subprocess = subprocess.Popen(
-            ["python", "-m" "debugpy", "--listen", "5678", "--log-to", "/home/andy/debugpy_log", "--wait-for-client", "/home/andy/test.py"],
+            ["python", "-m" "debugpy", "--listen", str(self.server_port), "--log-to", "/home/andy/debugpy_log", "--wait-for-client", "/home/andy/test.py"],
             bufsize=DEFAULT_BUFFER_SIZE,
             stdin=PIPE,
             stdout=PIPE,
             stderr=stderr)
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_address = ('localhost', 5678)
+        server_address = ('localhost', self.server_port)
 
         while True:
             try:
@@ -58,7 +60,7 @@ class DapServer(Thread):
                 break
             except socket.error as e:
                 import time
-                time.sleep(0.3)  # 等待一段时间再尝试重新连接，这里设置为300毫秒
+                time.sleep(0.3)
 
         self.receiver = DapServerReceiver(self.dap_subprocess, self.socket)
         self.receiver.start()
