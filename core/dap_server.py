@@ -169,20 +169,6 @@ class DapServerSender(MessageSender):
             type="request"
         ), **kwargs)
 
-    def send_notification(self, method, params, **kwargs):
-        self.enqueue_message(dict(
-            method=method,
-            params=params,
-            type="notification"
-        ), **kwargs)
-
-    def send_response(self, request_id, result, **kwargs):
-        self.enqueue_message(dict(
-            id=request_id,
-            result=result,
-            type="response"
-        ), **kwargs)
-
     def send_message(self, message: dict):
         json_content = json.dumps(message)
 
@@ -196,18 +182,7 @@ class DapServerSender(MessageSender):
         message_type = message.get("type")
 
         if message_type == "request":
-            print("Send {} request ({})".format(
-                message.get('command', 'response'),
-                message.get('id', 'notification')
-            ))
-        elif message_type == "notification":
-            print("Send {} notification".format(
-                message.get('command', 'response')
-            ))
-        elif message_type == "response":
-            print("Send response to server request {}".format(
-                message.get('id', 'notification')
-            ))
+            print("Send {} request".format(message.get('command', 'response')))
 
         print(json.dumps(message, indent=3))
 
