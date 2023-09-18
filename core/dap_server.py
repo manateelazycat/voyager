@@ -101,7 +101,10 @@ class DapServer(Thread):
             print(traceback.format_exc())
 
     def handle_recv_message(self, message: dict):
-        print("!!!!! ", message)
+        print("Receive: {}".format(json.dumps(message, indent=3)))
+
+        if "command" in message and message["command"] == "initialize" and message["request_seq"] == self.initialize_id:
+            self.sender.initialized.set()
 
 class MessageSender(Thread):
 
@@ -223,15 +226,26 @@ class DapServerReceiver(MessageReceiver):
             return
         try:
             # Send message.
-            self.queue.put({
-                "name": "dap_recv_message",
-                "content": parse_json_content(line)
-            })
+            self.queue.put(parse_json_content(line))
         except:
             import traceback
             print(traceback.format_exc())
 
     def run(self):
         while True:
-            response = self.socket.recv(DEFAULT_BUFFER_SIZE)
-            print("### Receive ", response)
+            message = self.socket.recv(DEFAULT_BUFFER_SIZE)
+
+            message_str = message.decode('utf-8')
+
+            match = re.search(r'Content-Length: (\d+)', message_str)
+            if match:
+                content_length = int(match.group(1))
+            else:
+                print("No Content-Length header found.")
+                content_length = None
+
+            if content_length is not None:
+                content_start = message_str.index('\r\n\r\n') + 4  # Start of content
+                json_content = message_str[content_start:content_start+content_length]
+
+                self.emit_message(json_content)
