@@ -71,7 +71,8 @@ class Voyager:
             logger.error(traceback.format_exc())
 
     def launch(self):
-        DapServer()
+        server_thread = DapServer()
+        server_thread.start()
         print("Launch test")
 
     def cleanup(self):

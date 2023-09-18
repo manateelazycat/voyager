@@ -33,16 +33,20 @@ from core.utils import *
 
 DEFAULT_BUFFER_SIZE = 100000000  # we need make buffer size big enough, avoid pipe hang by big data response from DAP server
 
-class DapServer:
+class DapServer(Thread):
 
     def __init__(self):
+        super().__init__()
+
+    def run(self) -> None:
         self.initialize_id = generate_request_id()
 
-        self.dap_subprocess = subprocess.Popen(["python", "-m" "debugpy", "--listen", "5678", "--log-to", "/home/andy/debugpy_log", "--wait-for-client", "/home/andy/test.py"],
-                                               bufsize=DEFAULT_BUFFER_SIZE,
-                                               stdin=PIPE,
-                                               stdout=PIPE,
-                                               stderr=stderr)
+        self.dap_subprocess = subprocess.Popen(
+            ["python", "-m" "debugpy", "--listen", "5678", "--log-to", "/home/andy/debugpy_log", "--wait-for-client", "/home/andy/test.py"],
+            bufsize=DEFAULT_BUFFER_SIZE,
+            stdin=PIPE,
+            stdout=PIPE,
+            stderr=stderr)
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = ('localhost', 5678)
@@ -50,11 +54,10 @@ class DapServer:
         while True:
             try:
                 self.socket.connect(server_address)
-                print('connected')
+                print('Connected')
                 break
             except socket.error as e:
                 import time
-                print('connection failed, retrying...')
                 time.sleep(0.3)  # 等待一段时间再尝试重新连接，这里设置为300毫秒
 
         self.receiver = DapServerReceiver(self.dap_subprocess, self.socket)
@@ -232,47 +235,3 @@ class DapServerReceiver(MessageReceiver):
         while True:
             response = self.socket.recv(DEFAULT_BUFFER_SIZE)
             print("### Receive ", response)
-        # try:
-        #     content_length = None
-        #     buffer = bytearray()
-        #     while self.process.poll() is None:
-        #         if content_length is None:
-        #             match = re.search(b"Content-Length: [0-9]+\r\n\r\n", buffer)
-        #             if match is not None:
-        #                 end = match.end()
-        #                 parts = match.group(0).decode("utf-8").strip().split(": ")
-        #                 content_length = int(parts[1])
-
-        #                 buffer = buffer[end:]
-        #             else:
-        #                 line = self.process.stdout.readline()    # type: ignore
-        #                 # dart_analysis_server 会发送 Content-Type,
-        #                 # 导致解析的 json 回包内容不完整
-        #                 if re.search(b"Content-Type", line) is None:
-        #                     buffer = buffer + line
-        #         else:
-        #             if len(buffer) < content_length:
-        #                 # 这个检查算是个防御吧，实际应该用不到了。先保留，后续再看。
-        #                 match = re.search(b"Content-Length: [0-9]+\r\n\r\n", buffer)
-        #                 if match is not None:
-        #                     start = match.start()
-        #                     msg = buffer[0:start]
-        #                     buffer = buffer[start:]
-        #                     content_length = None
-        #                     self.emit_message(msg.decode("utf-8"))
-        #                 else:
-        #                     line = self.process.stdout.readline(content_length - len(buffer))    # type: ignore
-        #                     buffer = buffer + line
-        #             else:
-        #                 msg = buffer[0: content_length]
-        #                 buffer = buffer[content_length:]
-        #                 content_length = None
-        #                 self.emit_message(msg.decode("utf-8"))
-        #         if self.process.stderr:
-        #             print(self.process.stderr.read())
-        #     print(self.process.stdout.read())    # type: ignore
-        #     if self.process.stderr:
-        #         print(self.process.stderr.read())
-        # except:
-        #     import traceback
-        #     print(traceback.format_exc())
