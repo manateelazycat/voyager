@@ -70,8 +70,8 @@ class DapServer:
 
     def send_initialize_request(self):
         self.sender.send_request("initialize", {
-            "clientID": "vscode",
-            "clientName": "Visual Studio Code",
+            "clientID": "emacs",
+            "clientName": "Emacs",
             "adapterID": "debugpy",
             "locale": "en-us",
             "linesStartAt1": True,
