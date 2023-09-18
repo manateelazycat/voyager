@@ -121,6 +121,9 @@ class DapServer(Thread):
             }]
         }, generate_request_id())
 
+    def configure_done(self):
+        self.sender.send_request("configurationDone", {}, generate_request_id())
+
 class MessageSender(Thread):
 
     def __init__(self, process: subprocess.Popen):

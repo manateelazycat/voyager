@@ -87,6 +87,12 @@ class Voyager:
         else:
             self.server_dict[path].set_function_breakpoint(function_name)
 
+    def configure_done(self, path):
+        if path not in self.server_dict:
+            message_emacs("Please execute voyager_start first.")
+        else:
+            self.server_dict[path].configure_done()
+
     def cleanup(self):
         """Do some cleanup before exit python process."""
         self.server_dict = {}
