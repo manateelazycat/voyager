@@ -252,9 +252,44 @@ Then Voyager will start by gdb, please send new issue with `*voyager*' buffer co
      (setq voyager-first-call-args nil)
      )))
 
-(defun voyager-launch ()
+(defun voyager-start ()
   (interactive)
-  (voyager-call-async "launch"))
+  (voyager-call-async "start" (voyager-get-buffer-file-name)))
+
+(defun voyager-set-function-breakpoint ()
+  (interactive)
+  (let* ((function-name (voyager-get-function-name))
+         (name (read-string (if (string-empty-p function-name)
+                                "Set function breakpoint: "
+                              (format "Set function breakpoint: (%s) " function-name))
+                            nil nil function-name)))
+    (if (string-empty-p name)
+        (message "Please input function name.")
+      (voyager-call-async "set_function_breakpoint" (voyager-get-buffer-file-name) name))))
+
+(defun voyager-get-buffer-file-name ()
+  (file-truename (buffer-file-name)))
+
+(defun voyager-get-match-nodes (query)
+  (ignore-errors
+    (mapcar #'(lambda (range)
+                (treesit-node-at (car range)))
+            (treesit-query-range
+             (treesit-node-language (treesit-buffer-root-node))
+             query))))
+
+(defun voyager-get-function-name ()
+  (let* ((function-nodes (append (voyager-get-match-nodes '((function_definition name: (symbol) @x)))
+                                 (voyager-get-match-nodes '((function_definition name: (identifier) @x)))
+                                 (voyager-get-match-nodes '((method_declaration name: (identifier) @x)))
+                                 ))
+         (function-name (catch 'found
+                          (dolist (function-node function-nodes)
+                            (when (and (> (point) (treesit-node-start (treesit-node-parent function-node)))
+                                       (< (point) (treesit-node-end (treesit-node-parent function-node))))
+                              (throw 'found (treesit-node-text function-node t))))
+                          (throw 'found ""))))
+    function-name))
 
 (defun voyager-enable ()
   (add-hook 'post-command-hook #'voyager-start-process))

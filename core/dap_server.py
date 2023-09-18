@@ -108,6 +108,19 @@ class DapServer(Thread):
         if "command" in message and message["command"] == "initialize" and message["request_seq"] == self.initialize_id:
             self.sender.initialized.set()
 
+            self.sender.send_request("attach", {
+                "__restart": "restart"
+            }, generate_request_id(), init=True)
+
+    def set_function_breakpoint(self, function_name):
+        self.sender.send_request("setFunctionBreakpoints", {
+            "breakpoints": [{
+                "name": function_name,
+                "condition": "",
+                "hitCondition": ""
+            }]
+        }, generate_request_id())
+
 class MessageSender(Thread):
 
     def __init__(self, process: subprocess.Popen):

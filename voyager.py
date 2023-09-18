@@ -25,12 +25,14 @@ import sys
 from pathlib import Path
 from epc.server import ThreadingEPCServer
 from core.dap_server import DapServer
-from utils import (init_epc_client, eval_in_emacs, logger, close_epc_client)
+from utils import (init_epc_client, eval_in_emacs, logger, close_epc_client, message_emacs)
 
 class Voyager:
     def __init__(self, args):
         # Init EPC client port.
         init_epc_client(int(args[0]))
+
+        self.server_dict = {}
 
         # Build EPC server.
         self.server = ThreadingEPCServer(('127.0.0.1', 0), log_traceback=True)
@@ -70,13 +72,24 @@ class Voyager:
         except:
             logger.error(traceback.format_exc())
 
-    def launch(self):
-        server_thread = DapServer()
-        server_thread.start()
-        print("Launch test")
+    def start(self, path):
+        self.start_server(path)
+
+    def start_server(self, path):
+        if path not in self.server_dict:
+            server_thread = DapServer()
+            self.server_dict[path] = server_thread
+            server_thread.start()
+
+    def set_function_breakpoint(self, path, function_name):
+        if path not in self.server_dict:
+            message_emacs("Please execute voyager_start first.")
+        else:
+            self.server_dict[path].set_function_breakpoint(function_name)
 
     def cleanup(self):
         """Do some cleanup before exit python process."""
+        self.server_dict = {}
         close_epc_client()
 
 if __name__ == "__main__":
