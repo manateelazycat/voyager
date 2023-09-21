@@ -44,7 +44,9 @@ class DapServer(Thread):
         self.server_port = get_free_port()
 
         self.dap_subprocess = subprocess.Popen(
-            ["python", "-m" "debugpy", "--listen", str(self.server_port), "--log-to", "/home/andy/debugpy_log", "--wait-for-client", "/home/andy/test.py"],
+            ["python", "-m" "debugpy", "--listen", str(self.server_port),
+             "--log-to", "/home/andy/debugpy_log",
+             "--wait-for-client", "/home/andy/test.py"],
             bufsize=DEFAULT_BUFFER_SIZE,
             stdin=PIPE,
             stdout=PIPE,
@@ -62,10 +64,10 @@ class DapServer(Thread):
                 import time
                 time.sleep(0.3)
 
-        self.receiver = DapServerReceiver(self.dap_subprocess, self.socket)
+        self.receiver = DapServerReceiver(self.socket)
         self.receiver.start()
 
-        self.sender = DapServerSender(self.dap_subprocess, self.socket)
+        self.sender = DapServerSender(self.socket)
         self.sender.start()
 
         self.receive_message_thread = threading.Thread(target=self.dap_message_dispatcher)
@@ -110,7 +112,7 @@ class DapServer(Thread):
 
             self.sender.send_request("attach", {
                 "__restart": "restart"
-            }, generate_request_id(), init=True)
+            }, generate_request_id())
 
     def set_function_breakpoint(self, function_name):
         self.sender.send_request("setFunctionBreakpoints", {
@@ -124,34 +126,13 @@ class DapServer(Thread):
     def configure_done(self):
         self.sender.send_request("configurationDone", {}, generate_request_id())
 
-class MessageSender(Thread):
-
-    def __init__(self, process: subprocess.Popen):
+class DapServerSender(Thread):
+    def __init__(self, socket):
         super().__init__()
-
-        self.process = process
-        self.queue = queue.Queue()
-
-    def send_request(self, message):
-        self.queue.put(message)
-
-class MessageReceiver(Thread):
-
-    def __init__(self, process: subprocess.Popen):
-        super().__init__()
-
-        self.process = process
-        self.queue = queue.Queue()
-
-    def get_message(self):
-        return self.queue.get(block=True)
-
-class DapServerSender(MessageSender):
-    def __init__(self, process: subprocess.Popen, socket):
-        super().__init__(process)
 
         self.socket = socket
 
+        self.queue = queue.Queue()
         self.init_queue = queue.Queue()
         self.initialized = threading.Event()
 
@@ -174,9 +155,6 @@ class DapServerSender(MessageSender):
 
         message_str = "Content-Length: {}\r\n\r\n{}".format(len(json_content), json_content)
 
-        # self.process.stdin.write(message_str.encode("utf-8"))    # type: ignore
-        # self.process.stdin.flush()    # type: ignore
-
         self.socket.sendall(message_str.encode("utf-8"))
 
         message_type = message.get("type")
@@ -194,25 +172,24 @@ class DapServerSender(MessageSender):
             # Wait until initialized.
             self.initialized.wait()
 
-            # Send other initialization-related messages.
-            while not self.init_queue.empty():
-                message = self.init_queue.get()
-                self.send_message(message)
-
             # Send all others.
-            while self.process.poll() is None:
+            while True:
                 message = self.queue.get()
                 self.send_message(message)
         except:
             import traceback
             print(traceback.format_exc())
 
-class DapServerReceiver(MessageReceiver):
+class DapServerReceiver(Thread):
 
-    def __init__(self, process: subprocess.Popen, socket):
-        super().__init__(process)
+    def __init__(self, socket):
+        super().__init__()
 
         self.socket = socket
+        self.queue = queue.Queue()
+
+    def get_message(self):
+        return self.queue.get(block=True)
 
     def emit_message(self, line):
         if not line:
